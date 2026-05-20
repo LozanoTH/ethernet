@@ -908,71 +908,6 @@ class Companion:
             if args.loop:
                 raise KeyboardInterrupt
 
-    def auto_connection(self, scanner, pixiemode=False, showpixiecmd=False, pixieforce=False, failed_bssids=None):
-        if failed_bssids is None:
-            failed_bssids = set()
-        
-        # Intentar desconectar para liberar el dispositivo antes del escaneo
-        self.sendOnly('DISCONNECT')
-        time.sleep(0.5)
-        
-        networks = scanner.iw_scanner()
-        if not networks:
-            return False
-
-        already_connected = []
-        if os.path.exists('conexiones.txt'):
-            with open('conexiones.txt', 'r', encoding='utf-8') as f:
-                content = f.read()
-                already_connected = re.findall(r'BSSID: ([0-9A-F:]{17})', content, re.IGNORECASE)
-                already_connected = [b.upper() for b in already_connected]
-
-        for _, network in networks.items():
-            bssid = network['BSSID'].upper()
-            if bssid in already_connected:
-                continue
-            if bssid in failed_bssids:
-                continue
-            
-            if network['WPS locked']:
-                info(f'Saltando {bssid} ({network["ESSID"]}) - WPS está bloqueado (Locked)')
-                failed_bssids.add(bssid)
-                continue
-
-            info(f'Intentando conectar a {bssid} ({network["ESSID"]})...')
-            
-            # Obtener todos los pines sugeridos para esta MAC
-            suggested_pins = self.generator.getSuggested(bssid)
-            tried_pins = set()
-            
-            # 1. Primero intentar los pines sugeridos por MAC
-            for pin_data in suggested_pins:
-                pin = pin_data['pin']
-                if pin in tried_pins: continue
-                
-                info(f'Probando pin sugerido: {pin} ({pin_data["name"]})')
-                if self.single_connection(bssid, pin=pin, pixiemode=False, auto=True):
-                    success(f'¡Éxito con PIN {pin}!')
-                    return True
-                tried_pins.add(pin)
-
-            # 2. Si no funcionaron o no hay sugeridos, intentar Pixie Dust si está activo
-            if pixiemode:
-                info(f'Intentando Pixie Dust en {bssid}...')
-                if self.single_connection(bssid, pixiemode=True, showpixiecmd=showpixiecmd, pixieforce=pixieforce, auto=True):
-                    return True
-
-            # 3. Como último recurso en auto, si la red es marcada como vulnerable pero no hay pines específicos, 
-            # intentar el pin genérico '12345670' o '00000000'
-            for generic_pin in ['12345670', '00000000']:
-                if generic_pin not in tried_pins:
-                    info(f'Probando pin genérico: {generic_pin}')
-                    if self.single_connection(bssid, pin=generic_pin, auto=True):
-                        return True
-            
-            # Si nada funcionó, marcar como fallido para este escaneo
-            failed_bssids.add(bssid)
-        return False
     def cleanup(self):
         self.retsock.close()
         self.wpas.terminate()
@@ -1200,6 +1135,10 @@ def check_and_disconnect(iface):
     cmd = f"iw dev {iface} link"
     proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='utf-8')
     if "Not connected" not in proc.stdout:
+        # Detectar SSH para avisar al usuario
+        if os.environ.get('SSH_CONNECTION') or os.environ.get('SSH_CLIENT'):
+            warning("!!! ATENCIÓN: EstÁS USANDO SSH. SI DESCONECTAS LA WIFI PERDERÁS EL CONTROL !!!")
+            time.sleep(2)
         warning(f"Active connection detected on {iface}. Disconnecting for auditing...")
         subprocess.run(f"iw dev {iface} disconnect", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(1)
@@ -1368,7 +1307,6 @@ class WebHandler(BaseHTTPRequestHandler):
                     --text: #ffffff;
                     --text-dim: #888888;
                     --danger: #ff4444;
-                    --info: #00e5ff;
                 }
                 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
                 body { 
@@ -1376,12 +1314,13 @@ class WebHandler(BaseHTTPRequestHandler):
                     background: var(--bg); 
                     color: var(--text); 
                     margin:0; 
-                    padding: 0;
-                    overflow-x: hidden;
+                    padding-bottom: 70px; /* Espacio para el menú inferior */
                 }
+                
+                /* Header Fijo */
                 .header { 
                     padding: 15px 20px; 
-                    background: rgba(17, 17, 17, 0.8); 
+                    background: rgba(17, 17, 17, 0.9); 
                     backdrop-filter: blur(10px);
                     border-bottom: 1px solid var(--border); 
                     display: flex; 
@@ -1391,135 +1330,158 @@ class WebHandler(BaseHTTPRequestHandler):
                     top: 0;
                     z-index: 100;
                 }
-                .logo { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+                .logo { font-size: 18px; font-weight: 800; }
                 .logo span { color: var(--primary); }
-                
-                .btn { 
-                    padding: 10px 18px; 
-                    border-radius: 8px; 
-                    border:none; 
-                    cursor:pointer; 
-                    font-weight: 700; 
-                    font-size: 13px;
-                    transition: all 0.2s ease; 
-                    text-transform: uppercase;
-                }
-                .btn-scan { background: var(--primary); color: #000; box-shadow: 0 4px 15px var(--primary-dim); }
-                .btn-scan:active { transform: scale(0.95); }
-                .btn-scan:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
 
-                .container { padding: 15px; display: flex; flex-direction: column; gap: 20px; }
-                
-                .card { 
-                    background: var(--card); 
-                    border-radius: 12px; 
-                    padding: 15px; 
-                    border: 1px solid var(--border); 
-                }
-                .card-title { 
-                    margin: 0 0 15px 0; 
-                    font-size: 14px; 
-                    color: var(--text-dim); 
-                    text-transform: uppercase; 
-                    letter-spacing: 1px;
+                /* Contenedor de Pestañas */
+                .tab-content { display: none; padding: 15px; animation: fadeIn 0.3s ease; }
+                .tab-content.active { display: block; }
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+                /* Menú de Navegación Inferior (Estilo App móvil) */
+                .nav-bar {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    width: 100%;
+                    background: #111;
+                    border-top: 1px solid var(--border);
                     display: flex;
-                    align-items: center;
-                    gap: 8px;
+                    justify-content: space-around;
+                    padding: 10px 0;
+                    z-index: 1000;
                 }
-                .card-title::before { content: ''; width: 3px; height: 14px; background: var(--primary); border-radius: 2px; }
-
-                /* Grid de Redes adaptativo */
-                .networks-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-                @media (min-width: 768px) { .networks-grid { grid-template-columns: repeat(2, 1fr); } }
-                @media (min-width: 1200px) { .networks-grid { grid-template-columns: repeat(3, 1fr); } }
-
-                .net-item {
-                    background: #181818;
-                    border: 1px solid var(--border);
-                    border-radius: 10px;
-                    padding: 12px;
+                .nav-item {
+                    background: none;
+                    border: none;
+                    color: var(--text-dim);
+                    font-size: 12px;
+                    font-weight: 600;
                     display: flex;
                     flex-direction: column;
-                    gap: 10px;
-                    transition: border-color 0.2s;
+                    align-items: center;
+                    gap: 5px;
+                    cursor: pointer;
+                    transition: 0.2s;
+                    flex: 1;
                 }
-                .net-item:hover { border-color: #333; }
-                .net-main { display: flex; justify-content: space-between; align-items: flex-start; }
-                .net-info { flex: 1; }
-                .net-essid { font-weight: 700; font-size: 15px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
-                .net-bssid { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); }
-                
-                .net-stats { display: flex; gap: 10px; font-size: 11px; font-weight: 600; }
-                .badge { padding: 2px 6px; border-radius: 4px; background: #222; }
-                .badge.vuln { color: var(--primary); background: var(--primary-dim); }
-                .badge.locked { color: var(--danger); background: rgba(255, 68, 68, 0.1); }
-                
-                .pwr-bar { width: 40px; height: 4px; background: #222; border-radius: 2px; position: relative; overflow: hidden; }
-                .pwr-val { height: 100%; background: var(--primary); border-radius: 2px; }
+                .nav-item.active { color: var(--primary); }
+                .nav-icon { width: 20px; height: 20px; fill: currentColor; }
 
-                .btn-attack { 
-                    width: 100%; 
-                    background: #2196F3; 
-                    color: #fff; 
-                    padding: 8px; 
-                    border-radius: 6px; 
-                    font-size: 12px; 
-                    font-weight: 700;
-                    border: none;
-                }
-
-                .logs-container { 
-                    background: #000; 
-                    color: #00ff41; 
-                    font-family: 'JetBrains Mono', monospace; 
-                    height: 250px; 
-                    overflow-y: auto; 
-                    padding: 12px; 
-                    font-size: 11px; 
-                    border-radius: 8px;
+                /* Estilos de Redes (Cards) */
+                .networks-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+                @media (min-width: 768px) { .networks-grid { grid-template-columns: repeat(2, 1fr); } }
+                
+                .net-item {
+                    background: var(--card);
                     border: 1px solid var(--border);
-                    line-height: 1.5;
+                    border-radius: 12px;
+                    padding: 15px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
                 }
-                .log-line { margin-bottom: 4px; border-bottom: 1px solid #080808; padding-bottom: 2px; }
-                .log-time { color: #555; margin-right: 8px; }
+                .net-essid { font-weight: 800; font-size: 16px; color: var(--text); }
+                .net-essid.vuln { color: var(--primary); text-shadow: 0 0 10px var(--primary-dim); }
+                .badge { padding: 3px 8px; border-radius: 5px; background: #222; font-size: 10px; font-weight: 700; }
+                .badge.vuln { color: var(--primary); background: var(--primary-dim); }
+                .btn-attack { 
+                    width: 100%; padding: 12px; border-radius: 8px; border: none;
+                    background: #2196F3; color: white; font-weight: 800; font-size: 13px;
+                }
 
-                ::-webkit-scrollbar { width: 4px; }
-                ::-webkit-scrollbar-track { background: transparent; }
-                ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+                /* Estilo Consola Full Screen */
+                .console-wrapper {
+                    background: #000;
+                    border-radius: 12px;
+                    border: 1px solid var(--border);
+                    height: calc(100vh - 180px);
+                    display: flex;
+                    flex-direction: column;
+                }
+                .console-header {
+                    padding: 10px 15px;
+                    border-bottom: 1px solid #222;
+                    font-size: 11px;
+                    color: #555;
+                    font-family: 'JetBrains Mono', monospace;
+                }
+                .logs-container { 
+                    flex: 1;
+                    padding: 15px;
+                    overflow-y: auto;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 12px;
+                    color: #00ff41;
+                    line-height: 1.6;
+                }
+                .log-line { margin-bottom: 6px; border-bottom: 1px solid #0a0a0a; }
+                .log-time { color: #444; margin-right: 10px; }
+                
+                .btn-scan-main {
+                    background: var(--primary);
+                    color: black;
+                    padding: 15px;
+                    border-radius: 10px;
+                    width: 100%;
+                    font-weight: 800;
+                    border: none;
+                    margin-bottom: 20px;
+                }
             </style>
         </head>
         <body>
             <div class="header">
                 <div class="logo">WPS<span>AUDITOR</span></div>
-                <button class="btn btn-scan" onclick="startScan()" id="scanBtn">ESCANEAR</button>
+                <div id="statusDot" style="width:10px; height:10px; background:#444; border-radius:50%"></div>
             </div>
-            
-            <div class="container">
-                <div class="card">
-                    <div class="card-title">Consola de Eventos</div>
+
+            <!-- Pestaña Redes -->
+            <div id="tab-networks" class="tab-content active">
+                <button class="btn-scan-main" onclick="startScan()" id="scanBtn">ESCANEAR REDES</button>
+                <div id="networksList" class="networks-grid">
+                    <div style="text-align:center; color:#555; padding:50px">Cargando redes...</div>
+                </div>
+            </div>
+
+            <!-- Pestaña Consola -->
+            <div id="tab-console" class="tab-content">
+                <div class="console-wrapper">
+                    <div class="console-header">WPS_AUDITOR_TERMINAL_V1.0.2</div>
                     <div class="logs-container" id="logs"></div>
                 </div>
+            </div>
 
-                <div class="card">
-                    <div class="card-title">Redes en el área</div>
-                    <div id="networksList" class="networks-grid">
-                        <div style="color: var(--text-dim); font-size: 13px; padding: 20px; text-align: center; width: 100%;">
-                            Pulsa ESCANEAR para buscar redes...
-                        </div>
-                    </div>
-                </div>
+            <!-- Navegación Inferior -->
+            <div class="nav-bar">
+                <button class="nav-item active" onclick="switchTab('networks', this)">
+                    <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
+                    REDES
+                </button>
+                <button class="nav-item" onclick="switchTab('console', this)">
+                    <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 18V6h16v12H4z"/></svg>
+                    CONSOLA
+                </button>
             </div>
 
             <script>
+                function switchTab(tabId, el) {
+                    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                    document.getElementById('tab-' + tabId).classList.add('active');
+                    el.classList.add('active');
+                }
+
                 async function startScan() {
                     const btn = document.getElementById('scanBtn');
                     btn.disabled = true;
-                    btn.innerText = 'Buscando...';
+                    btn.innerText = 'ESCANEANDO...';
                     await fetch('/api/scan', {method: 'POST'});
                 }
 
                 async function attack(bssid) {
                     if(!confirm('¿Atacar ' + bssid + '?')) return;
+                    switchTab('console', document.querySelectorAll('.nav-item')[1]);
                     await fetch('/api/attack', {
                         method: 'POST',
                         body: JSON.stringify({bssid: bssid})
@@ -1529,9 +1491,9 @@ class WebHandler(BaseHTTPRequestHandler):
                 function updateLogs() {
                     fetch('/api/logs').then(r => r.json()).then(logs => {
                         const div = document.getElementById('logs');
-                        const isAtBottom = div.scrollHeight - div.clientHeight <= div.scrollTop + 1;
+                        const isAtBottom = div.scrollHeight - div.clientHeight <= div.scrollTop + 2;
                         div.innerHTML = logs.map(l => {
-                            const time = l.match(/\[(.*?)\]/)?.[1] || '--:--:--';
+                            const time = l.match(/\[(.*?)\]/)?.[1] || '--:--';
                             const msg = l.replace(/\[.*?\] /, '');
                             return `<div class="log-line"><span class="log-time">${time}</span>${msg}</div>`;
                         }).join('');
@@ -1541,51 +1503,38 @@ class WebHandler(BaseHTTPRequestHandler):
 
                 function updateNetworks() {
                     fetch('/api/networks').then(r => r.json()).then(nets => {
-                        if(!nets || Object.keys(nets).length === 0) return;
                         const container = document.getElementById('networksList');
                         let html = '';
-                        
                         const netArray = Array.isArray(nets) ? nets : Object.values(nets);
                         
                         netArray.forEach(n => {
                             const isVuln = n.Model && (n.Model.includes('Archer') || n.Model.includes('TD-W'));
-                            const wpsLocked = n['WPS locked'];
-                            const signal = Math.min(Math.max(2 * (n.Level + 100), 0), 100);
-                            
+                            const locked = n['WPS locked'];
                             html += `
                             <div class="net-item">
-                                <div class="net-main">
-                                    <div class="net-info">
-                                        <div class="net-essid ${isVuln ? 'vuln' : ''}">${n.ESSID || '<Oculto>'}</div>
-                                        <div class="net-bssid">${n.BSSID}</div>
-                                    </div>
-                                    <div class="pwr-bar">
-                                        <div class="pwr-val" style="width: ${signal}%"></div>
-                                    </div>
+                                <div class="net-essid ${isVuln ? 'vuln' : ''}">${n.ESSID || '<Oculto>'}</div>
+                                <div style="font-size:11px; color:#555; font-family:monospace">${n.BSSID}</div>
+                                <div style="display:flex; gap:8px; margin-top:5px">
+                                    <span class="badge ${locked ? '' : 'vuln'}">WPS: ${locked ? 'LOCKED' : 'OPEN'}</span>
+                                    <span class="badge">PWR: ${n.Level}dBm</span>
                                 </div>
-                                <div class="net-stats">
-                                    <span class="badge">${n['Security type']}</span>
-                                    <span class="badge ${wpsLocked ? 'locked' : 'vuln'}">WPS: ${wpsLocked ? 'LOCKED' : 'OPEN'}</span>
-                                    ${isVuln ? '<span class="badge vuln">VULNERABLE</span>' : ''}
-                                </div>
-                                <button class="btn-attack" onclick="attack('${n.BSSID}')" ${wpsLocked ? 'disabled style="opacity:0.5"' : ''}>
-                                    ${wpsLocked ? 'BLOQUEADO' : 'INICIAR ATAQUE'}
+                                <button class="btn-attack" onclick="attack('${n.BSSID}')" ${locked ? 'disabled style="opacity:0.3"' : ''}>
+                                    ${locked ? 'BLOQUEADO' : 'ATACAR'}
                                 </button>
                             </div>`;
                         });
-                        container.innerHTML = html || 'No se encontraron redes WPS.';
+                        if(html) container.innerHTML = html;
                     });
                 }
 
                 function updateStatus() {
-                    fetch('/api/status').then(r => r.json()).then(status => {
-                        const btn = document.getElementById('scanBtn');
-                        if(status.is_scanning) {
-                            btn.disabled = true;
-                            btn.innerText = 'ESCANEANDO...';
-                        } else {
+                    fetch('/api/status').then(r => r.json()).then(st => {
+                        const dot = document.getElementById('statusDot');
+                        dot.style.background = st.current_attack ? '#ff4444' : (st.is_scanning ? '#00ffa3' : '#444');
+                        if(!st.is_scanning) {
+                            const btn = document.getElementById('scanBtn');
                             btn.disabled = false;
-                            btn.innerText = 'ESCANEAR';
+                            btn.innerText = 'ESCANEAR REDES';
                         }
                     });
                 }
@@ -1601,38 +1550,37 @@ class WebHandler(BaseHTTPRequestHandler):
 
 
 
-def open_browser(port):
-    try:
-        # Intentar abrir con termux-open-url (Android/Termux) o xdg-open (Linux)
-        for cmd in [f"termux-open-url http://localhost:{port}", f"xdg-open http://localhost:{port}"]:
-            if subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
-                break
-    except:
-        pass
 
 def start_web_server(scanner, args, port=8080):
     GLOBAL_STATE['scanner'] = scanner
     GLOBAL_STATE['args'] = args
     
-    # Permitir reutilizar el puerto si el script se reinicia rápido
+    # Forzar la liberación del puerto si quedó colgado
     class ReusableHTTPServer(HTTPServer):
-        allow_reuse_address = True
+        def server_bind(self):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                # SO_REUSEPORT permite que varios procesos se unan al mismo puerto
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            except AttributeError:
+                pass
+            super().server_bind()
 
     def run():
         try:
             server = ReusableHTTPServer(('0.0.0.0', port), WebHandler)
             server.serve_forever()
         except Exception as e:
-            error(f"Error en servidor web: {e}")
+            if "Address already in use" in str(e):
+                error(f"El puerto {port} ya está ocupado. Intenta cerrar procesos antiguos o usa --web-port {port+1}")
+            else:
+                error(f"Error en servidor web: {e}")
 
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
 
     print(f"\n{Colors.GREEN}[*]{Colors.WHITE} App Web iniciada en {Colors.CYAN}http://localhost:{port}{Colors.RESET}")
     print(f"{Colors.DIM}• Controla el escaneo y los ataques desde tu navegador.{Colors.RESET}\n")
-
-    # Abrir navegador automáticamente
-    open_browser(port)
 
     return thread
 
@@ -1760,29 +1708,9 @@ if __name__ == '__main__':
             ani(f"\n{Colors.RED}[!] Goodbye!{Colors.RESET}")
             sys.exit(0)
 
-    failed_bssids = set()
     companion = None
     while True:
         try:
-            if args.auto:
-                if not companion:
-                    companion = Companion(args.interface, args.write, print_debug=args.verbose)
-                res = companion.auto_connection(scanner, args.pixie_dust, args.show_pixie_cmd, args.pixie_force, failed_bssids)
-                if res:
-                    # Si se intentó una red, continuamos para re-escanear y buscar la siguiente
-                    if args.loop or args.auto:
-                        info("Esperando 5 segundos para el próximo escaneo...")
-                        time.sleep(5)
-                    continue
-                else:
-                    # No hay más redes para intentar en este escaneo
-                    if args.loop or args.auto:
-                        info("No hay nuevas redes para atacar. Esperando 5 segundos...")
-                        time.sleep(5)
-                        continue
-                    else:
-                        break
-
             if not args.bssid:
                 if not args.loop:
                     info('BSSID not specified (--bssid) — scanning for available networks')
