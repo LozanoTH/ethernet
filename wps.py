@@ -1352,54 +1352,174 @@ class WebHandler(BaseHTTPRequestHandler):
     def _get_dashboard_html(self):
         return """
         <!DOCTYPE html>
-        <html>
+        <html lang="es">
         <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
             <title>WPS Auditor PRO</title>
+            <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
             <style>
-                :root { --primary: #00e676; --bg: #0a0a0a; --card: #151515; --text: #eee; }
-                body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin:0; }
-                .header { padding: 20px; background: var(--card); border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-                .btn { padding: 10px 20px; border-radius: 5px; border:none; cursor:pointer; font-weight: bold; transition: 0.3s; }
-                .btn-scan { background: var(--primary); color: #000; }
-                .btn-attack { background: #2196F3; color: #fff; padding: 5px 10px; font-size: 12px; }
-                .container { padding: 20px; display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-                .card { background: var(--card); border-radius: 10px; padding: 15px; border: 1px solid #222; }
-                table { width:100%; border-collapse: collapse; margin-top: 10px; }
-                th { text-align: left; color: #888; font-size: 12px; padding: 10px; border-bottom: 1px solid #222; }
-                td { padding: 12px 10px; border-bottom: 1px solid #111; font-size: 14px; }
-                .logs { background: #000; color: #0f0; font-family: monospace; height: 300px; overflow-y: auto; padding: 10px; font-size: 12px; border-radius: 5px; }
-                .vuln { color: var(--primary); font-weight: bold; }
-                .locked { color: #f44336; }
-                @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
+                :root {
+                    --primary: #00ffa3;
+                    --primary-dim: rgba(0, 255, 163, 0.1);
+                    --bg: #050505;
+                    --card: #111111;
+                    --border: #222222;
+                    --text: #ffffff;
+                    --text-dim: #888888;
+                    --danger: #ff4444;
+                    --info: #00e5ff;
+                }
+                * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+                body { 
+                    font-family: 'Inter', sans-serif; 
+                    background: var(--bg); 
+                    color: var(--text); 
+                    margin:0; 
+                    padding: 0;
+                    overflow-x: hidden;
+                }
+                .header { 
+                    padding: 15px 20px; 
+                    background: rgba(17, 17, 17, 0.8); 
+                    backdrop-filter: blur(10px);
+                    border-bottom: 1px solid var(--border); 
+                    display: flex; 
+                    justify-content: space-between; 
+                    align-items: center;
+                    position: sticky;
+                    top: 0;
+                    z-index: 100;
+                }
+                .logo { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+                .logo span { color: var(--primary); }
+                
+                .btn { 
+                    padding: 10px 18px; 
+                    border-radius: 8px; 
+                    border:none; 
+                    cursor:pointer; 
+                    font-weight: 700; 
+                    font-size: 13px;
+                    transition: all 0.2s ease; 
+                    text-transform: uppercase;
+                }
+                .btn-scan { background: var(--primary); color: #000; box-shadow: 0 4px 15px var(--primary-dim); }
+                .btn-scan:active { transform: scale(0.95); }
+                .btn-scan:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+
+                .container { padding: 15px; display: flex; flex-direction: column; gap: 20px; }
+                
+                .card { 
+                    background: var(--card); 
+                    border-radius: 12px; 
+                    padding: 15px; 
+                    border: 1px solid var(--border); 
+                }
+                .card-title { 
+                    margin: 0 0 15px 0; 
+                    font-size: 14px; 
+                    color: var(--text-dim); 
+                    text-transform: uppercase; 
+                    letter-spacing: 1px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .card-title::before { content: ''; width: 3px; height: 14px; background: var(--primary); border-radius: 2px; }
+
+                /* Grid de Redes adaptativo */
+                .networks-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+                @media (min-width: 768px) { .networks-grid { grid-template-columns: repeat(2, 1fr); } }
+                @media (min-width: 1200px) { .networks-grid { grid-template-columns: repeat(3, 1fr); } }
+
+                .net-item {
+                    background: #181818;
+                    border: 1px solid var(--border);
+                    border-radius: 10px;
+                    padding: 12px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    transition: border-color 0.2s;
+                }
+                .net-item:hover { border-color: #333; }
+                .net-main { display: flex; justify-content: space-between; align-items: flex-start; }
+                .net-info { flex: 1; }
+                .net-essid { font-weight: 700; font-size: 15px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+                .net-bssid { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); }
+                
+                .net-stats { display: flex; gap: 10px; font-size: 11px; font-weight: 600; }
+                .badge { padding: 2px 6px; border-radius: 4px; background: #222; }
+                .badge.vuln { color: var(--primary); background: var(--primary-dim); }
+                .badge.locked { color: var(--danger); background: rgba(255, 68, 68, 0.1); }
+                
+                .pwr-bar { width: 40px; height: 4px; background: #222; border-radius: 2px; position: relative; overflow: hidden; }
+                .pwr-val { height: 100%; background: var(--primary); border-radius: 2px; }
+
+                .btn-attack { 
+                    width: 100%; 
+                    background: #2196F3; 
+                    color: #fff; 
+                    padding: 8px; 
+                    border-radius: 6px; 
+                    font-size: 12px; 
+                    font-weight: 700;
+                    border: none;
+                }
+
+                .logs-container { 
+                    background: #000; 
+                    color: #00ff41; 
+                    font-family: 'JetBrains Mono', monospace; 
+                    height: 250px; 
+                    overflow-y: auto; 
+                    padding: 12px; 
+                    font-size: 11px; 
+                    border-radius: 8px;
+                    border: 1px solid var(--border);
+                    line-height: 1.5;
+                }
+                .log-line { margin-bottom: 4px; border-bottom: 1px solid #080808; padding-bottom: 2px; }
+                .log-time { color: #555; margin-right: 8px; }
+
+                ::-webkit-scrollbar { width: 4px; }
+                ::-webkit-scrollbar-track { background: transparent; }
+                ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
             </style>
         </head>
         <body>
             <div class="header">
-                <div style="font-size: 20px; font-weight: bold;">WPS Auditor <span style="color:var(--primary)">App</span></div>
+                <div class="logo">WPS<span>AUDITOR</span></div>
                 <button class="btn btn-scan" onclick="startScan()" id="scanBtn">ESCANEAR</button>
             </div>
+            
             <div class="container">
                 <div class="card">
-                    <h3 style="margin-top:0">Redes Detectadas</h3>
-                    <div id="networksList">Cargando redes...</div>
+                    <div class="card-title">Consola de Eventos</div>
+                    <div class="logs-container" id="logs"></div>
                 </div>
+
                 <div class="card">
-                    <h3 style="margin-top:0">Terminal / Logs</h3>
-                    <div class="logs" id="logs"></div>
+                    <div class="card-title">Redes en el área</div>
+                    <div id="networksList" class="networks-grid">
+                        <div style="color: var(--text-dim); font-size: 13px; padding: 20px; text-align: center; width: 100%;">
+                            Pulsa ESCANEAR para buscar redes...
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <script>
                 async function startScan() {
-                    document.getElementById('scanBtn').disabled = true;
-                    document.getElementById('scanBtn').innerText = 'ESCANEANDO...';
+                    const btn = document.getElementById('scanBtn');
+                    btn.disabled = true;
+                    btn.innerText = 'Buscando...';
                     await fetch('/api/scan', {method: 'POST'});
                 }
 
                 async function attack(bssid) {
-                    if(!confirm('¿Iniciar ataque contra ' + bssid + '?')) return;
+                    if(!confirm('¿Atacar ' + bssid + '?')) return;
                     await fetch('/api/attack', {
                         method: 'POST',
                         body: JSON.stringify({bssid: bssid})
@@ -1409,28 +1529,51 @@ class WebHandler(BaseHTTPRequestHandler):
                 function updateLogs() {
                     fetch('/api/logs').then(r => r.json()).then(logs => {
                         const div = document.getElementById('logs');
-                        div.innerHTML = logs.map(l => `<div>${l}</div>`).join('');
-                        div.scrollTop = div.scrollHeight;
+                        const isAtBottom = div.scrollHeight - div.clientHeight <= div.scrollTop + 1;
+                        div.innerHTML = logs.map(l => {
+                            const time = l.match(/\[(.*?)\]/)?.[1] || '--:--:--';
+                            const msg = l.replace(/\[.*?\] /, '');
+                            return `<div class="log-line"><span class="log-time">${time}</span>${msg}</div>`;
+                        }).join('');
+                        if (isAtBottom) div.scrollTop = div.scrollHeight;
                     });
                 }
 
                 function updateNetworks() {
                     fetch('/api/networks').then(r => r.json()).then(nets => {
-                        if(nets.length == 0) return;
-                        let html = '<table><tr><th>ESSID</th><th>BSSID</th><th>PWR</th><th>WPS</th><th>ACCION</th></tr>';
-                        nets.forEach(n => {
-                            const isVuln = n.Model && n.Model.includes('Archer'); // Ejemplo simple
-                            const wps = n['WPS locked'] ? '<span class="locked">Locked</span>' : '<span class="vuln">Unlocked</span>';
-                            html += `<tr>
-                                <td class="${isVuln ? 'vuln' : ''}">${n.ESSID}</td>
-                                <td>${n.BSSID}</td>
-                                <td>${n.Level}</td>
-                                <td>${wps}</td>
-                                <td><button class="btn btn-attack" onclick="attack('${n.BSSID}')">ATACAR</button></td>
-                            </tr>`;
+                        if(!nets || Object.keys(nets).length === 0) return;
+                        const container = document.getElementById('networksList');
+                        let html = '';
+                        
+                        const netArray = Array.isArray(nets) ? nets : Object.values(nets);
+                        
+                        netArray.forEach(n => {
+                            const isVuln = n.Model && (n.Model.includes('Archer') || n.Model.includes('TD-W'));
+                            const wpsLocked = n['WPS locked'];
+                            const signal = Math.min(Math.max(2 * (n.Level + 100), 0), 100);
+                            
+                            html += `
+                            <div class="net-item">
+                                <div class="net-main">
+                                    <div class="net-info">
+                                        <div class="net-essid ${isVuln ? 'vuln' : ''}">${n.ESSID || '<Oculto>'}</div>
+                                        <div class="net-bssid">${n.BSSID}</div>
+                                    </div>
+                                    <div class="pwr-bar">
+                                        <div class="pwr-val" style="width: ${signal}%"></div>
+                                    </div>
+                                </div>
+                                <div class="net-stats">
+                                    <span class="badge">${n['Security type']}</span>
+                                    <span class="badge ${wpsLocked ? 'locked' : 'vuln'}">WPS: ${wpsLocked ? 'LOCKED' : 'OPEN'}</span>
+                                    ${isVuln ? '<span class="badge vuln">VULNERABLE</span>' : ''}
+                                </div>
+                                <button class="btn-attack" onclick="attack('${n.BSSID}')" ${wpsLocked ? 'disabled style="opacity:0.5"' : ''}>
+                                    ${wpsLocked ? 'BLOQUEADO' : 'INICIAR ATAQUE'}
+                                </button>
+                            </div>`;
                         });
-                        html += '</table>';
-                        document.getElementById('networksList').innerHTML = html;
+                        container.innerHTML = html || 'No se encontraron redes WPS.';
                     });
                 }
 
@@ -1447,15 +1590,15 @@ class WebHandler(BaseHTTPRequestHandler):
                     });
                 }
 
-                setInterval(updateLogs, 2000);
-                setInterval(updateNetworks, 3000);
+                setInterval(updateLogs, 1500);
+                setInterval(updateNetworks, 4000);
                 setInterval(updateStatus, 2000);
                 updateLogs();
-                updateNetworks();
             </script>
         </body>
         </html>
         """
+
 
 
 def open_browser(port):
