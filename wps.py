@@ -1671,6 +1671,11 @@ if __name__ == '__main__':
         default=8080,
         help='Puerto para el servidor web (por defecto: 8080)'
     )
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Mostrar salida detallada (debug)'
+    )
 
     args = parser.parse_args()
 
