@@ -1350,7 +1350,7 @@ class WebHandler(BaseHTTPRequestHandler):
         GLOBAL_STATE['current_attack'] = None
 
     def _get_dashboard_html(self):
-        return """
+        return r"""
         <!DOCTYPE html>
         <html lang="es">
         <head>
@@ -1613,10 +1613,14 @@ def open_browser(port):
 def start_web_server(scanner, args, port=8080):
     GLOBAL_STATE['scanner'] = scanner
     GLOBAL_STATE['args'] = args
+    
+    # Permitir reutilizar el puerto si el script se reinicia rápido
+    class ReusableHTTPServer(HTTPServer):
+        allow_reuse_address = True
 
     def run():
         try:
-            server = HTTPServer(('0.0.0.0', port), WebHandler)
+            server = ReusableHTTPServer(('0.0.0.0', port), WebHandler)
             server.serve_forever()
         except Exception as e:
             error(f"Error en servidor web: {e}")
