@@ -1,3 +1,6 @@
+[![Licencia](https://img.shields.io/github/license/LozanoTH/ethernet)](LICENSE)
+[![Lenguaje](https://img.shields.io/github/languages/top/LozanoTH/ethernet)](https://github.com/LozanoTH/ethernet)
+
 # WPS Auditor PRO: Framework Modular de Auditoria Inalambrica
 
 WPS Auditor PRO es una solucion avanzada y modular para la evaluacion de seguridad en redes inalambricas que utilizan el protocolo Wi-Fi Protected Setup (WPS). Diseñada con un enfoque primordial en la portabilidad para entornos Termux (Android) y sistemas GNU/Linux, esta herramienta integra un motor de inyeccion de paquetes con una interfaz de control remoto basada en web.
